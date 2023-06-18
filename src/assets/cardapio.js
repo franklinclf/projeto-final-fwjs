@@ -1,11 +1,11 @@
 export const cardapio = [
     {
-      nome: "Água Mineral sem Gás 500ml",
+      nome: "Agua Mineral sem Gás 500ml",
       tipo: "bebida",
       preco: 4
     },
     {
-      nome: "Água Mineral com Gás 500ml",
+      nome: "Agua Mineral com Gás 500ml",
       tipo: "bebida",
       preco: 4
     },

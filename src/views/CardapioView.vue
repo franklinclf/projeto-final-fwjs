@@ -1,8 +1,22 @@
 <script setup>
-import { ref, watch } from "vue";
+import { ref, watch, inject } from "vue";
 import { cardapio } from "../assets/cardapio.js";
 import ItemCardapio from "../components/ItemCardapio.vue";
 import Pedido from "../components/Pedido.vue";
+
+let modalOn = ref(false);
+let modalQuantity = ref(1)
+
+let pedidoSelecionado = ref({})
+let pedidosAnotados = ref([])
+let mesa = ref(1)
+
+let items = ref(cardapio);
+let pesquisa = ref('');
+ordenar(items.value)
+
+let { patio, adicionarItens } = inject('patio')
+
 
 function ordenar(array) {
   array.sort((objetoA, objetoB) => {
@@ -43,21 +57,6 @@ function filtrar(type) {
   }
 }
 
-let items = ref(cardapio);
-
-ordenar(items.value);
-
-let pesquisa = ref('');
-
-watch(pesquisa, () => {
-  items.value = cardapio.filter(item => item.nome.toLowerCase().includes(pesquisa.value.toLowerCase()))
-})
-
-let modalOn = ref(false);
-let modalQuantity = ref(1)
-let pedidoSelecionado = ref({})
-let pedidosAnotados = ref([])
-
 function selecionarPedido(item) {
   pedidoSelecionado.value = item;
   modalQuantity.value = 1;
@@ -65,16 +64,16 @@ function selecionarPedido(item) {
 }
 
 function anotarPedido(item, q) {
+  let currentTime = new Date();
   let valor = item.preco * q;
   let temp = {
     id: Math.floor(Math.random() * 9000) + 1000,
     nome: item.nome,
     preco: valor,
     quantidade: q,
-    horario: Date(),
-    status: "Em preparo"
+    horario: currentTime.getMinutes() < 10 ? `${currentTime.getHours()}:0${currentTime.getMinutes()}` : `${currentTime.getHours()}:${currentTime.getMinutes()}`,
+    status: "preparo"
   }
-
   pedidosAnotados.value.push(temp)
   modalOn.value = false;
 }
@@ -83,34 +82,40 @@ function excluirPedido(id) {
   pedidosAnotados.value = pedidosAnotados.value.filter(pedido => pedido.id !== id);
 }
 
+watch(pesquisa, () => {
+  items.value = cardapio.filter(item => item.nome.toLowerCase().includes(pesquisa.value.toLowerCase()))
+})
 
 </script>
 
 <template>
-  <div v-if="modalOn" class="overlay">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>{{ pedidoSelecionado.nome }}</h3>
-        <div @click="modalOn = false" class="modal-escape">✕</div>
-      </div>
-      <div class="modal-mid">
-        <h4>R$ {{ pedidoSelecionado.preco.toFixed(2) }}</h4>
-        <div class="modal-quantity">
-          <div class="minus" @click="modalQuantity <= 1 ? modalQuantity = 1 : modalQuantity--">-</div>
-          <div class="quantity">{{ modalQuantity }}</div>
-          <div class="plus" @click="modalQuantity++">+</div>
+  <Transition>
+    <div v-if="modalOn" class="overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ pedidoSelecionado.nome }}</h3>
+          <div @click="modalOn = false" class="modal-escape">✕</div>
+        </div>
+        <div class="modal-mid">
+          <h4>R$ {{ pedidoSelecionado.preco.toFixed(2) }}</h4>
+          <div class="modal-quantity">
+            <div class="minus" @click="modalQuantity <= 1 ? modalQuantity = 1 : modalQuantity--">-</div>
+            <div class="quantity">{{ modalQuantity }}</div>
+            <div class="plus" @click="modalQuantity++">+</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div @click="anotarPedido(pedidoSelecionado, modalQuantity)" class="modal-pedido">Anotar Pedido</div>
         </div>
       </div>
-      <div class="modal-footer">
-        <div @click="anotarPedido(pedidoSelecionado, modalQuantity)" class="modal-pedido">Anotar Pedido</div>
-      </div>
     </div>
-  </div>
+  </Transition>
+
   <div class="cardapio-container">
     <div class="cardapio-menu">
 
       <h1>CARDÁPIO</h1>
-      <input type="text" v-model="pesquisa" placeholder="Pesquise por nome..."/>
+      <input type="text" v-model="pesquisa" placeholder="Pesquise por nome..." class="pesquisa" />
 
       <div class="filtros">
         <div class="cardapio-filtro" @click="filtrar('tudo')">TUDO</div>
@@ -121,17 +126,26 @@ function excluirPedido(id) {
     </div>
 
     <div class="cardapio-items">
-      <ItemCardapio v-for="item in items" :info="item" :key="item.nome" @click="selecionarPedido(item)" class="cardapio-item"/>
+      <ItemCardapio v-for="item in items" :info="item" :key="item.nome" @click="selecionarPedido(item)"
+        class="cardapio-item" />
     </div>
 
-    <div class="cardapio-pedido">
-      <Pedido v-for="pedido in pedidosAnotados" :anotado="pedido" :key="pedido.nome" @click="excluirPedido(pedido.id)" />
+    <div class="pedidos-anotados">
+      <div class="cardapio-pedido">
+        <Pedido v-for="pedido in pedidosAnotados" :anotado="pedido" :key="pedido.nome"
+          @click="excluirPedido(pedido.id)" />
+      </div>
+      <div class="fazer-pedido">
+        <select name="numero-mesa" class="numero-mesa" v-model="mesa">
+          <option v-for="i in patio.length" :value="i">{{ i }}</option>
+        </select>
+        <div class="confirmar-pedido" @click="adicionarItens(pedidosAnotados, mesa); pedidosAnotados = [];">FAZER PEDIDO</div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-
 .overlay {
   display: flex;
   align-items: center;
@@ -139,7 +153,7 @@ function excluirPedido(id) {
   position: fixed;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0,0,0,0.2);
+  background-color: rgba(0, 0, 0, 0.2);
   z-index: 10;
 }
 
@@ -147,7 +161,7 @@ function excluirPedido(id) {
   position: absolute;
   background-color: white;
   width: 20vw;
-  height: 10vw;
+  height: 11vw;
   padding: 10px;
   border-radius: 0.5vw;
 }
@@ -225,9 +239,8 @@ function excluirPedido(id) {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 7vw;
+  width: 50%;
   height: 5vh;
-  margin-right: -1vh;
   background-color: #dadada;
   border-radius: 0.5vh;
 }
@@ -239,7 +252,7 @@ function excluirPedido(id) {
 
 .cardapio-container {
   display: grid;
-  grid-template-columns: 1fr 3fr 1fr;
+  grid-template-columns: 1fr 3fr 1.5fr;
   height: 90vh;
 }
 
@@ -263,7 +276,7 @@ function excluirPedido(id) {
 
 }
 
-input[type=text] {
+.pesquisa {
   width: 70%;
   height: 5vh;
   border-radius: 0.7vh;
@@ -290,7 +303,55 @@ input[type=text] {
 }
 
 .cardapio-pedido {
-  background-color: #dadada;
   overflow: auto;
 }
-</style>
+
+.pedidos-anotados {
+  display: grid;
+  grid-template-rows: 5fr 1fr;
+  height: 90vh;
+  background-color: #dadada;
+}
+
+
+.fazer-pedido {
+  display: flex;
+  justify-content: center;
+  height: 10vh;
+
+}
+
+.confirmar-pedido {
+  width: 15vw;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #c1c1c1;
+  border-radius: 0 0.5vw 0.5vw 0;
+}
+
+.confirmar-pedido:hover {
+  cursor: pointer;
+  background-color: #adadad;
+}
+
+.numero-mesa {
+  width: 5vw;
+  height: 100%;
+  border: none;
+  outline: none;
+  font-size: 2.5em;
+  text-align: center;
+  border-radius: 0.5vw 0 0 0.5vw;
+}
+
+.v-enter-active,
+.v-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.v-enter-from,
+.v-leave-to {
+  opacity: 0;
+}</style>

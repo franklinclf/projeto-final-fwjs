@@ -1,5 +1,4 @@
 <script setup>
-import { defineProps } from 'vue';
 
 let {nome, tipo, preco} = defineProps(['info']);
 

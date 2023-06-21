@@ -1,8 +1,6 @@
 <script setup>
 let { nome, preco, quantidade, status, horario} = defineProps(['anotado'])
 
-console.log(nome)
-
 </script>
 
 <template>

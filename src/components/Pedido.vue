@@ -1,5 +1,5 @@
 <script setup>
-let { nome, preco, quantidade, status, horario} = defineProps(['anotado'])
+let { nome, preco, quantidade} = defineProps(['anotado'])
 
 </script>
 

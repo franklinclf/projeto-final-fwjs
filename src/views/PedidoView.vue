@@ -1,5 +1,5 @@
 <script setup>
-import { inject, ref, watch} from 'vue';
+import { inject, ref, watch, provide} from 'vue';
 
 let { patio } = inject('patio');
 let mesa = ref(1);

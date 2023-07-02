@@ -1,109 +1,320 @@
 <script setup>
-import { inject, ref, watch } from 'vue';
-import Conta from '../components/Conta.vue';
+import { ref, inject } from 'vue';
+import Conta from "../components/Conta.vue"
+import SelecionarItem from "../components/SelecionarItem.vue"
 
-let { patio } = inject('patio');
-let mesa = ref(1);
-let mesaSelecionada = ref(false);
-let divisao = ref(1);
+let { patio } = inject('patio')
+
+let modal = ref(false)
+
+let listaDePedidos = ref([])
+let listaTemporaria = ref([])
+let listaPreTemporaria = ref([])
+
+let mesas = ref(true)
+let mesaSelecionada = ref(1)
+
+let houveDivisao = ref(false)
+let contasDivididas = ref(1)
 let contas = ref([])
+let contaSelecionada = ref()
 
-function handleSelection(numerodaMesa) {
-    mesa.value = numerodaMesa;
-    mesaSelecionada.value = true;
-    contas.value = [];
-    contas.value.push(dataExtraction(patio.value[mesa.value].pedidos))
-    console.log(contas.value)
+function handleSelection(mesa) {
+    mesaSelecionada.value = mesa - 1;
+    contas.value = []
+    listaTemporaria.value = dataExtraction(patio.value[mesaSelecionada.value].pedidos)
+    listaDePedidos.value = dataExtraction(patio.value[mesaSelecionada.value].pedidos)
+    mesas.value = false;
+}
+
+function handleEscape() {
+    listaPreTemporaria.value = []
+    modal.value = false
 }
 
 function handleDivisao() {
+
+    if (contasDivididas.value === contas.value.length) {
+        return;
+    }
+
     contas.value = [];
-    for(let i = 0; i < divisao.value; i++){
-        contas.value.push({});
+    
+    if (contasDivididas.value === 1) {
+        houveDivisao.value = false;
+        listaTemporaria.value = listaDePedidos.value;
+        return;
     }
+
+    for (let i = 0; i < contasDivididas.value; i++) {
+        contas.value.push([]);
+    }
+
+    listaTemporaria.value = listaDePedidos.value;
+    houveDivisao.value = true;
 }
 
-function dataExtraction(pedidos) {
-    let temp = [];
+function handleConta(conta) {
+    contaSelecionada.value = conta;
+    listaPreTemporaria.value = [];
+    modal.value = true;
+}
 
-    for (let i = 0; i < pedidos.length; i++) {
-        let encontrado = temp.find(pedido => pedido.nome === pedidos[i].nome);
+function dataExtraction(originalArray) {
+    const resultado = [];
+    const mapa = new Map();
 
-        if(encontrado) {
-            encontrado.quantidade += pedidos[i].quantidade;
-            encontrado.preco += pedidos[i].preco;
-        }
-        else if(pedidos[i].status !== 'cancelado') {
-            let novoItem = {
-                nome: pedidos[i].nome,
-                quantidade: pedidos[i].quantidade,
-                preco: pedidos[i].preco,
+    originalArray.forEach(obj => {
+        if (obj.status !== 'cancelado') {
+            if (mapa.has(obj.nome)) {
+                const itemExistente = mapa.get(obj.nome);
+                itemExistente.preco += obj.preco;
+                itemExistente.quantidade += obj.quantidade;
+            } else {
+                mapa.set(obj.nome, {
+                    nome: obj.nome,
+                    preco: obj.preco,
+                    quantidade: obj.quantidade
+                });
             }
-
-            temp.push(novoItem);
         }
-    }
-    return temp;
+    });
+
+    mapa.forEach(value => resultado.push(value));
+
+    return resultado;
 }
 
+function handleOperation(objeto) {
+    const { op, nome, preco, quantidade } = objeto;
+
+    if (op === "add") {
+        const index = listaPreTemporaria.value.findIndex(item => item.nome === nome);
+
+        if (index !== -1) {
+            listaPreTemporaria.value[index].preco = preco;
+            listaPreTemporaria.value[index].quantidade = quantidade;
+        } else {
+            listaPreTemporaria.value.push({ nome, preco, quantidade });
+        }
+    } else if (op === "remove") {
+        const index = listaPreTemporaria.value.findIndex(item => item.nome === nome);
+
+        if (index !== -1) {
+            listaPreTemporaria.value.splice(index, 1);
+        }
+    }
+}
+
+function handleAdditions() {
+    for(let i = 0; i < listaPreTemporaria.value.length; i++) {
+
+        const preTemp = listaPreTemporaria.value[i];
+        const index = listaTemporaria.value.findIndex(item => item.nome === preTemp.nome)
+
+        if(index !== -1) {
+            listaTemporaria.value[index].quantidade -= preTemp.quantidade;
+            listaTemporaria.value[index].preco -=preTemp.preco;
+    
+            if(listaTemporaria.value[index].quantidade === 0) {
+                listaTemporaria.value.splice(index, 1);
+            }
+        }
+    }
+
+    contas.value[contaSelecionada.value] = contas.value[contaSelecionada.value].concat(listaPreTemporaria.value);
+
+    modal.value = false;
+}
+
+function handleReset() {
+    contas.value = []
+
+    for (let i = 0; i < contasDivididas.value; i++) {
+        contas.value.push([]);
+    }
+
+    listaTemporaria.value = dataExtraction(patio.value[mesaSelecionada.value].pedidos)
+    listaDePedidos.value = dataExtraction(patio.value[mesaSelecionada.value].pedidos)
+}
+
+function handleRemocao(obj) {
+    const index = listaTemporaria.value.findIndex(item => item.nome === obj.pedido.nome)
+    const rIndex = contas.value[obj.numero].findIndex(item => item.nome === obj.pedido.nome)
+
+    if(index === -1) {
+        listaTemporaria.value.push(obj.pedido)
+        contas.value[obj.numero].splice(rIndex, 1)
+    }
+    else {
+        listaTemporaria.value[index].quantidade += obj.pedido.quantidade;
+        listaTemporaria.value[index].preco += obj.pedido.preco;
+        contas.value[obj.numero].splice(rIndex, 1)
+    }
+}
+
+function handleEmissao() {
+    alert("Enviado para a impressora!")
+}
 
 </script>
 
 <template>
-    <div v-if="!mesaSelecionada">
+    <Transition>
+        <div v-if="modal" class="overlay">
+            <div class="modal">
+                <div class="modal-header">
+                    <p>Conta {{ contaSelecionada + 1 }}</p>
+                    <button @click="handleEscape">✕</button>
+                </div>
+                <div class="modal-conteudo">
+                    <div class="modal-conteudo-header">
+                        <p>NOME</p>
+                        <p>PREÇO</p>
+                        <p>QUANTIDADE</p>
+                    </div>
+                    <SelecionarItem v-for="item in listaTemporaria" :item="item" :numeroConta="contaSelecionada"
+                        @itemSelecionado="handleOperation"/>
+                </div>
+                <div class="modal-acao">
+                    <button @click="handleAdditions">ADICIONAR ITENS</button>
+                </div>
+            </div>
+        </div>
+    </Transition>
+
+    <div v-if="mesas" class="container-mesas">
         <h1>ESCOLHA UMA MESA:</h1>
-        <div class="listaDeMesas">
-            <div v-for="(mesa, i) in patio" :key="i + 1" class="mesa" @click="handleSelection(i)">Mesa {{ i + 1 }}</div>
+        <div class="lista-de-mesas">
+            <div class="mesa" v-for="i in patio.length" @click="handleSelection(i)">
+                Mesa {{ i }}
+            </div>
         </div>
     </div>
 
-    <div v-if="mesaSelecionada">
-        <div class="container-conta">
-            <div class="conta-menu">
-                <div class="conta-menu-botao">EMITIR CONTA</div>
-                <div class="conta-menu-divisao">
-                    <input type="number" min="1" v-model="divisao" class="numero-mesa">
-                    <div class="dividir-conta" @click="handleDivisao">DIVIDIR CONTA</div>
-                </div>
+    <div v-else class="container-pagina">
+        <div class="conta-menu">
+            <div v-if="!houveDivisao" class="conta-menu-botao" @click="handleEmissao">EMITIR CONTA</div>
+            <div v-else class="conta-menu-botao" @click="handleReset">RESETAR</div>
+            <div class="container-divisao">
+                <input type="number" min="1" v-model="contasDivididas" class="conta-menu-numero">
+                <div class="conta-menu-dividir" @click="handleDivisao">DIVIDIR CONTA</div>
+            </div>
+        </div>
+
+        <div class="conta-itens">
+
+            <div class="conta-titulo">
+                <button @click="mesas = true; houveDivisao = false; contasDivididas = 1">VOLTAR</button>
+                <h1>CONTA DA MESA {{ mesaSelecionada + 1 }}: R$ {{ patio[mesaSelecionada].conta.toFixed(2) }}</h1>
             </div>
 
-            <div class="conta">
-                <div class="titulo">
-                    <button @click="mesaSelecionada = false">VOLTAR</button>
-                    <h1>CONTA DA MESA {{ mesa + 1 }}: R$ {{ patio[mesa].conta.toFixed(2) }}</h1>
+            <div class="conta-pedidos">
+                <div class="conta-header">
+                    <p>ITEM</p>
+                    <p style="text-align: center">QUANTIDADE</p>
+                    <p>UNIDADE</p>
+                    <p>VALOR</p>
                 </div>
-                <div class="lista-pedidos">
-                    <div class="header">
-                        <p>ITEM</p>
-                        <p>QUANTIDADE</p>
-                        <p>VALOR</p>
-                        <p>HORÁRIO</p>
-                    </div>
-                    <h1 v-if="patio[mesa].conta === 0">MESA SEM PEDIDOS</h1>
-                    <div v-for="item in patio[mesa].pedidos">
-                        <div v-if="item.status !== 'cancelado'" class="item">
-                            <p>{{ item.nome }}</p>
-                            <p style="text-align: center">{{ item.quantidade }}</p>
-                            <p>R$ {{ item.preco.toFixed(2) }}</p>
-                            <p>{{ item.horario }}</p>
-                        </div>
-                    </div>
+
+                <h1 v-if="patio[mesaSelecionada].conta === 0">MESA SEM PEDIDOS</h1>
+                <div v-for="item in listaDePedidos" class="conta-pedido">
+                    <p>{{ item.nome }}</p>
+                    <p style="text-align: center">{{ item.quantidade }}</p>
+                    <p>R$ {{ (item.preco / item.quantidade).toFixed(2) }}</p>
+                    <p>R$ {{ item.preco.toFixed(2) }}</p>
                 </div>
             </div>
-            <div class="conta-divisao">
-                <Conta v-for="i in contas.length" :pedidos="contas[i - 1]" :numero="i"/>
-            </div>
+        </div>
+        <div class="conta-lista">
+            <Conta v-for="(conta, i) in contas" :pedidos="conta" :numero="i" @adicionarPedidos="handleConta(i)"
+                @emitirConta="handleEmissao" @removerItem="handleRemocao"/>
         </div>
     </div>
 </template>
 
 <style scoped>
-h1 {
-    text-align: center;
-    font-size: 2vw;
+.overlay {
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.2);
+    z-index: 99;
 }
 
-.listaDeMesas {
+.modal {
+    background-color: white;
+    width: 30vw;
+    height: 50vh;
+    border-radius: 0.5vw;
+    display: grid;
+    grid-template-rows: 10% 80% 10%;
+
+}
+
+.modal-header {
+    background-color: #bdbdbd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 0.2vw 0.2vw 0 0;
+    padding: 0.2vw;
+}
+
+.modal-header button {
+    border: none;
+    background-color: #dadada;
+    border-radius: 0.2vw;
+}
+
+.modal-header button:hover {
+    cursor: pointer;
+    background-color: #b0b0b0;
+}
+
+.modal-conteudo {
+    display: flex;
+    flex-direction: column;
+    padding: 0.2vw;
+    overflow: auto;
+}
+
+.modal-conteudo-header {
+    display: grid;
+    grid-template-columns: 1fr 0.5fr 0.5fr;
+    font-weight: 700;
+}
+
+.modal-acao {
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    padding: 0.2vw;
+}
+
+.modal-acao button {
+    border: none;
+    background-color: #dadada;
+    width: 50%;
+    height: 100%;
+    border-radius: 0.2vw;
+}
+
+.modal-acao button:hover {
+    cursor: pointer;
+    background-color: #b0b0b0;
+}
+
+.container-mesas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lista-de-mesas {
     height: 75vh;
     display: flex;
     flex-flow: row wrap;
@@ -129,17 +340,11 @@ h1 {
     background-color: #c8c8c8;
 }
 
-.titulo {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 2vw;
-}
-
-.container-conta {
+.container-pagina {
+    width: 100vw;
+    height: 90vh;
     display: grid;
     grid-template-columns: 1fr 3fr 1.5fr;
-    height: 90vh;
 }
 
 .conta-menu {
@@ -166,13 +371,13 @@ h1 {
     background-color: #c8c8c8;
 }
 
-.conta-menu-divisao {
+.container-divisao {
     display: flex;
     justify-content: center;
     height: 10vh;
 }
 
-.dividir-conta {
+.conta-menu-dividir {
     width: 10vw;
     height: 100%;
     display: flex;
@@ -182,12 +387,12 @@ h1 {
     border-radius: 0 0.5vw 0.5vw 0;
 }
 
-.dividir-conta:hover {
+.conta-menu-dividir:hover {
     cursor: pointer;
     background-color: #adadad;
 }
 
-.numero-mesa {
+.conta-menu-numero {
     width: 5vw;
     height: 100%;
     border: none;
@@ -197,50 +402,47 @@ h1 {
     border-radius: 0.5vw 0 0 0.5vw;
 }
 
-.conta {
+.conta-titulo {
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
+    gap: 2vw;
 }
 
-.conta-divisao {
-    background-color: #dadada;
+.conta-pedidos {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: start;
-    overflow: auto;
-    padding-top: 5vh;
-    padding-bottom: 5vh;
-}
-
-.header {
-    display: grid;
-    grid-template-columns: 3fr 1fr 1fr 1fr;
-}
-
-.header p {
-    font-weight: 700;
-}
-
-.lista-pedidos {
-    display: flex;
-    flex-direction: column;
-    width: 50vw;
+    width: 40vw;
     height: 75vh;
     overflow: auto;
 }
 
-.item {
+.conta-header {
     display: grid;
-    grid-template-columns: 3fr 1fr 1fr 1fr;
-    width: 100%;
-    height: 10vh;
-    justify-content: space-between;
+    grid-template-columns: 2fr 1fr 0.5fr 0.5fr;
+}
+
+.conta-header p {
+    font-weight: 700;
+}
+
+.conta-pedido {
+    display: grid;
+    grid-template-columns: 2fr 1fr 0.5fr 0.5fr;
+}
+
+.conta-itens {
+    display: flex;
+    flex-direction: column;
     align-items: center;
 }
 
-.item:hover {
-    background-color: #c1c1c1;
+.conta-lista {
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #dadada;
+    overflow: auto;
 }
 </style>

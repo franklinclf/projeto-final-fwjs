@@ -1,79 +1,91 @@
 <script setup>
-import { inject, ref, watch, provide} from 'vue';
+import { ref, inject, watch } from 'vue';
 
-let { patio } = inject('patio');
-let mesa = ref(1);
-let mesaSelecionada = ref(false);
+let { patio } = inject('patio')
+let mesas = ref(true)
+let mesaSelecionada = ref(0)
 
-watch(patio.value, () => {
-    let conta = 0;
-
-    for(let i = 0; i < patio.value[mesa.value].pedidos.length; i++){
-        if(patio.value[mesa.value].pedidos[i].status !== "cancelado")
-        conta += patio.value[mesa.value].pedidos[i].preco;
-    }
-
-    patio.value[mesa.value].conta = conta;
-
-})
-
-function handleSelection(numerodaMesa) {
-    mesa.value = numerodaMesa;
-    mesaSelecionada.value = true;
+function handleSelection(mesa) {
+    mesaSelecionada.value = mesa - 1;
+    mesas.value = false;
 }
 
 function handleStatus(item, event) {
     item.status = event.target.value;
 }
 
+watch(patio.value, () => {
+    let conta = 0;
+    let mesa = patio.value[mesaSelecionada.value];
+
+    for(let i = 0; i < mesa.pedidos.length; i++){
+        if(mesa.pedidos[i].status !== "cancelado")
+        conta += mesa.pedidos[i].preco;
+    }
+
+    mesa.conta = conta;
+
+})
+
 </script>
 
 <template>
-    <div v-if="!mesaSelecionada">
-        <h1>ESCOLHA UMA MESA:</h1>
-        <div class="listaDeMesas">
-            <div v-for="(mesa, i) in patio" :key="i + 1" class="mesa" @click="handleSelection(i)">Mesa {{ i + 1 }}</div>
-        </div>
-    </div>
-
-    <div v-if="mesaSelecionada">
-        <div class="container-pedidos">
-            <div class="titulo">
-                <button @click="mesaSelecionada = false">VOLTAR</button>
-                <h1>CONTA DA MESA {{ mesa + 1 }}: R$ {{ patio[mesa].conta.toFixed(2) }}</h1>
+    <div class="container-pagina">
+        <div v-if="mesas" class="container-mesas">
+            <h1>ESCOLHA UMA MESA:</h1>
+            <div class="lista-de-mesas">
+                <div class="mesa" v-for="i in patio.length" @click="handleSelection(i)">
+                    Mesa {{ i }}
+                </div>
             </div>
-            <div class="lista-pedidos">
-                <div class="header">
+        </div>
+
+        <div v-else class="container-pedido">
+
+            <div class="pedido-titulo">
+                <button @click="mesas = true">VOLTAR</button>
+                <h1>CONTA DA MESA {{ mesaSelecionada + 1 }}: R$ {{ patio[mesaSelecionada].conta.toFixed(2) }}</h1>
+            </div>
+
+            <div class="pedido-items">
+                <div class="pedido-header">
                     <p>ITEM</p>
                     <p>QUANTIDADE</p>
                     <p>VALOR</p>
                     <p>HORÁRIO</p>
                     <p>STATUS</p>
                 </div>
-                <h1 v-if="patio[mesa].pedidos.length === 0">MESA SEM PEDIDOS</h1>
-                <div v-for="item in patio[mesa].pedidos" class="item">
-                    <p>{{ item.nome }}</p>
-                    <p style="text-align: center">{{ item.quantidade }}</p>
-                    <p>R$ {{ item.preco.toFixed(2) }}</p>
-                    <p>{{ item.horario}}</p>
-                    <select @change="handleStatus(item, $event)" :value="item.status" :key="item.id">
-                        <option value="preparo">Em preparo</option>
-                        <option value="entregue">Entregue</option>
-                        <option value="cancelado">Cancelado</option>
-                    </select>
+
+                <h1 v-if="patio[mesaSelecionada].pedidos.length === 0">MESA SEM PEDIDOS</h1>
+                
+                    <div v-for="item in patio[mesaSelecionada].pedidos" class="pedido-item">
+    
+                        <p>{{ item.nome }}</p>
+                        <p>{{ item.quantidade }}</p>
+                        <p>R$ {{ item.preco.toFixed(2) }}</p>
+                        <p>{{ item.horario }}</p>
+    
+                        <select @change="handleStatus(item, $event)" :value="item.status" :key="item.id">
+                            <option value="preparo">Em preparo</option>
+                            <option value="entregue">Entregue</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+
                 </div>
             </div>
+
         </div>
     </div>
 </template>
 
 <style scoped>
-
-h1 {
-    text-align: center;
-    font-size: 2vw;
+.container-mesas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
-.listaDeMesas {
+
+.lista-de-mesas {
     height: 75vh;
     display: flex;
     flex-flow: row wrap;
@@ -99,45 +111,47 @@ h1 {
     background-color: #c8c8c8;
 }
 
-.titulo {
+.pedido-titulo {
     display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.container-pedido {
+    display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 2vw;
 }
 
-.container-pedidos {
+.pedido-items {
     display: flex;
     flex-direction: column;
     align-items: center;
-}
-
-.header {
-    display: grid;
-    grid-template-columns: 3fr 1fr 1fr 1fr 1fr;
-}
-
-.header p {
-    font-weight: 700;
-}
-.lista-pedidos {
-    display: flex;
-    flex-direction: column;
-    width: 50vw;
-    height: 75vh;
+    height: 80vh;
     overflow: auto;
 }
 
-.item {
+.pedido-header {
     display: grid;
     grid-template-columns: 3fr 1fr 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+.pedido-header p {
+    font-weight: 700;
+}
+
+.pedido-item {
+    display: grid;
+    grid-template-columns: 3fr 1fr 1fr 1fr 1fr;
+    gap: 10px;
     width: 100%;
     height: 10vh;
-    justify-content: space-between;
     align-items: center;
 }
 
-.item:hover {
+.pedido-item:hover {
     background-color: #c1c1c1;
 }
 

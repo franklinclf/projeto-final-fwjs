@@ -1,357 +1,381 @@
 <script setup>
-import { ref, watch, inject } from "vue";
-import { cardapio } from "../assets/cardapio.js";
-import ItemCardapio from "../components/ItemCardapio.vue";
-import Pedido from "../components/Pedido.vue";
-
-let modalOn = ref(false);
-let modalQuantity = ref(1)
-
-let pedidoSelecionado = ref({})
-let pedidosAnotados = ref([])
-let mesa = ref(1)
-
-let items = ref(cardapio);
-let pesquisa = ref('');
-ordenar(items.value)
+import { ref, watch, inject } from 'vue';
+import { cardapio } from '../assets/cardapio';
 
 let { patio, adicionarItens } = inject('patio')
+let listaDeItems = ref(cardapio);
 
+let pesquisa = ref('');
+let modal = ref(false);
+let modalQuantidade = ref(1)
+let mesaSelecionada = ref(1);
+let itemSelecionado = ref();
+let pedidosAnotados = ref([]);
 
-function ordenar(array) {
-  array.sort((objetoA, objetoB) => {
-    const nomeA = objetoA.nome.toLowerCase();
-    const nomeB = objetoB.nome.toLowerCase();
+watch(pesquisa, () => {
+    listaDeItems = cardapio.filter(item => item.nome.toLowerCase().includes(pesquisa.value.toLowerCase()))
+})
 
-    if (nomeA < nomeB) {
-      return -1;
+function filtrar(tipo) {
+    switch (tipo) {
+        case "tudo": listaDeItems.value = cardapio;
+            break;
+        case "bebidas": listaDeItems.value = cardapio.filter(item => item.tipo === 'bebida');
+            break;
+        case "petiscos": listaDeItems.value = cardapio.filter(item => item.tipo === 'petisco');
+            break;
+        case "outros": listaDeItems.value = cardapio.filter(item => item.tipo === 'outros');
+            break;
+        default: listaDeItems.value = cardapio;
+            break;
     }
-    if (nomeA > nomeB) {
-      return 1;
-    }
-    return 0;
-  });
 }
 
-function filtrar(type) {
-
-  if (type === 'tudo') {
-    items.value = cardapio;
-    ordenar(items.value);
-  }
-  else if (type === 'bebida') {
-    items.value = cardapio.filter(item => item.tipo === 'bebida');
-    ordenar(items.value);
-  }
-  else if (type === 'petisco') {
-    items.value = cardapio.filter(item => item.tipo === 'petisco');
-    ordenar(items.value);
-  }
-  else if (type === 'outros') {
-    items.value = cardapio.filter(item => item.tipo === 'outros');
-    ordenar(items.value);
-  }
-  else {
-    items.value = cardapio;
-    ordenar(items.value);
-  }
+function handleSelection(item) {
+    itemSelecionado.value = item;
+    modalQuantidade.value = 1;
+    modal.value = true;
 }
 
-function selecionarPedido(item) {
-  pedidoSelecionado.value = item;
-  modalQuantity.value = 1;
-  modalOn.value = true;
+function handleQuantity(op) {
+    switch (op) {
+        case 'minus': modalQuantidade.value === 1 ? modalQuantidade.value = 1 : --modalQuantidade.value;
+            break;
+        case 'plus': ++modalQuantidade.value;
+            break;
+        default:
+            break;
+    }
 }
 
 function anotarPedido(item, q) {
-  let currentTime = new Date();
-  let valor = item.preco * q;
-  let temp = {
-    id: Math.floor(Math.random() * 9000) + 1000,
-    nome: item.nome,
-    preco: valor,
-    quantidade: q,
-    horario: currentTime.getMinutes() < 10 ? `${currentTime.getHours()}:0${currentTime.getMinutes()}` : `${currentTime.getHours()}:${currentTime.getMinutes()}`,
-    status: "preparo"
-  }
-  pedidosAnotados.value.push(temp)
-  modalOn.value = false;
+    let currentTime = new Date();
+    let valor = item.preco * q;
+    let temp = {
+        id: Math.floor(Math.random() * 9000) + 1000,
+        nome: item.nome,
+        preco: valor,
+        quantidade: q,
+        horario: currentTime.getMinutes() < 10 ? `${currentTime.getHours()}:0${currentTime.getMinutes()}` : `${currentTime.getHours()}:${currentTime.getMinutes()}`,
+        status: "preparo"
+    }
+
+    pedidosAnotados.value.push(temp)
+    modal.value = false;
 }
 
 function excluirPedido(id) {
-  pedidosAnotados.value = pedidosAnotados.value.filter(pedido => pedido.id !== id);
+    pedidosAnotados.value = pedidosAnotados.value.filter(pedido => pedido.id !== id);
 }
-
-watch(pesquisa, () => {
-  items.value = cardapio.filter(item => item.nome.toLowerCase().includes(pesquisa.value.toLowerCase()))
-})
 
 </script>
 
 <template>
-  <Transition>
-    <div v-if="modalOn" class="overlay">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>{{ pedidoSelecionado.nome }}</h3>
-          <div @click="modalOn = false" class="modal-escape">✕</div>
+
+    <!-- ///////////////////// OVERLAY E MODAL ////////////////////////////////////////////////////////////////////////////// -->
+   
+    <Transition>
+        <div v-if="modal" class="overlay">
+            <div class="modal">
+                <div class="modal-header">
+                    <p>{{ itemSelecionado.nome }}</p>
+                    <button @click="modal = false">✕</button>
+                </div>
+                <div class="modal-conteudo">
+                    <p>R$ {{ (itemSelecionado.preco * modalQuantidade).toFixed(2) }}</p>
+                    <div class="modal-quantidade">
+                        <div class="minus" @click="handleQuantity('minus')">−</div>
+                        <div class="modal-quantidade-numero">{{ modalQuantidade }}</div>
+                        <div class="plus" @click="handleQuantity('plus')">+</div>
+                    </div>
+                </div>
+                <div class="modal-acao">
+                    <button @click="anotarPedido(itemSelecionado, modalQuantidade)">ANOTAR PEDIDO</button>
+                </div>
+            </div>
         </div>
-        <div class="modal-mid">
-          <h4>R$ {{ pedidoSelecionado.preco.toFixed(2) }}</h4>
-          <div class="modal-quantity">
-            <div class="minus" @click="modalQuantity <= 1 ? modalQuantity = 1 : modalQuantity--">-</div>
-            <div class="quantity">{{ modalQuantity }}</div>
-            <div class="plus" @click="modalQuantity++">+</div>
-          </div>
+    </Transition>
+
+    <div class="container-pagina">
+
+        <!-- ///////////////////// SEÇÃO DE MENU - FILTRO E PESQUISA DO CARDÁPIO ///////////////////////////////////////////// -->
+
+        <div class="cardapio-menu">
+            <div class="cardapio-pesquisa">
+                <h1>PESQUISA:</h1>
+                <input type="text" v-model="pesquisa" placeholder="Digite aqui...">
+            </div>
+            <div class="cardapio-filtro" @click="filtrar('tudo')">
+                TUDO
+            </div>
+            <div class="cardapio-filtro" @click="filtrar('bebidas')">
+                BEBIDAS
+            </div>
+            <div class="cardapio-filtro" @click="filtrar('petiscos')">
+                PETISCOS
+            </div>
+            <div class="cardapio-filtro" @click="filtrar('outros')">
+                OUTROS
+            </div>
         </div>
-        <div class="modal-footer">
-          <div @click="anotarPedido(pedidoSelecionado, modalQuantity)" class="modal-pedido">Anotar Pedido</div>
+
+        <!-- ///////////////////// SEÇÃO DE ITENS DO CARDÁPIO //////////////////////////////////////////////////////////////// -->
+
+        <div class="cardapio-itens">
+            <div class="cardapio-item" v-for="item in listaDeItems" @click="handleSelection(item)">{{ item.nome }}</div>
         </div>
-      </div>
+
+        <!-- ///////////////////// SEÇÃO DE ITENS ANOTADOS /////////////////////////////////////////////////////////////////// -->
+
+        <div class="cardapio-pedidos">
+            <div class="cardapio-lista-pedidos">
+                <div class="cardapio-pedido" v-for="pedido in pedidosAnotados" @click="excluirPedido(pedido.id)">
+                    <div>{{ pedido.nome }} ({{ pedido.quantidade }})</div>
+                    <div>R$ {{ pedido.preco.toFixed(2) }}</div>
+                </div>
+            </div>
+            <div class="cardapio-fazer-pedido">
+                <select class="numero-mesa" v-model="mesaSelecionada">
+                    <option v-for="i in patio.length" :value="i">{{ i }}</option>
+                </select>
+                <div class="confirmar-pedido"
+                    @click="adicionarItens(pedidosAnotados, mesaSelecionada); pedidosAnotados = [];">FAZER PEDIDO</div>
+            </div>
+        </div>
     </div>
-  </Transition>
-
-  <div class="cardapio-container">
-    <div class="cardapio-menu">
-
-      <h1>CARDÁPIO</h1>
-      <input type="text" v-model="pesquisa" placeholder="Pesquise por nome..." class="pesquisa" />
-
-      <div class="filtros">
-        <div class="cardapio-filtro" @click="filtrar('tudo')">TUDO</div>
-        <div class="cardapio-filtro" @click="filtrar('bebida')">BEBIDAS</div>
-        <div class="cardapio-filtro" @click="filtrar('petisco')">PETISCOS</div>
-        <div class="cardapio-filtro" @click="filtrar('outros')">OUTROS</div>
-      </div>
-    </div>
-
-    <div class="cardapio-items">
-      <ItemCardapio v-for="item in items" :info="item" :key="item.nome" @click="selecionarPedido(item)"
-        class="cardapio-item" />
-    </div>
-
-    <div class="pedidos-anotados">
-      <div class="cardapio-pedido">
-        <Pedido v-for="pedido in pedidosAnotados" :anotado="pedido" :key="pedido.nome"
-          @click="excluirPedido(pedido.id)" />
-      </div>
-      <div class="fazer-pedido">
-        <select name="numero-mesa" class="numero-mesa" v-model="mesa">
-          <option v-for="i in patio.length" :value="i">{{ i }}</option>
-        </select>
-        <div class="confirmar-pedido" @click="adicionarItens(pedidosAnotados, mesa); pedidosAnotados = [];">FAZER PEDIDO</div>
-      </div>
-    </div>
-  </div>
 </template>
 
 <style scoped>
 .overlay {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: fixed;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.2);
-  z-index: 10;
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.2);
+    z-index: 99;
 }
 
 .modal {
-  position: absolute;
-  background-color: white;
-  width: 20vw;
-  height: 11vw;
-  padding: 10px;
-  border-radius: 0.5vw;
+    background-color: white;
+    width: 25vw;
+    height: 25vh;
+    border-radius: 0.5vw;
+    display: grid;
+    grid-template-rows: 20% 60% 20%;
+
 }
 
 .modal-header {
-  display: flex;
-  justify-content: space-between;
+    background-color: #bdbdbd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 0.2vw 0.2vw 0 0;
+    padding: 0.2vw;
 }
 
-.modal-escape {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5vh;
-  width: 1.5vw;
-  height: 1.5vw;
-  background-color: #dadada;
+.modal-header button {
+    border: none;
+    background-color: #dadada;
+    border-radius: 0.2vw;
 }
 
-.modal-escape:hover {
-  cursor: pointer;
-  background-color: #c1c1c1;
+.modal-header button:hover {
+    cursor: pointer;
+    background-color: #b0b0b0;
 }
 
-.modal-mid {
-  display: flex;
-  justify-content: space-between;
+.modal-conteudo {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0.2vw;
 }
 
-.modal-quantity {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.modal-quantidade {
+    display: flex;
+    height: 3.5vh;
 }
 
-.minus {
-  text-align: center;
-  width: 1.5vw;
-  height: 1.5vw;
-  background-color: #dadada;
-  border-radius: 0.5vh 0 0 0.5vh;
+.modal-quantidade-numero {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 3.5vh;
 }
 
-.minus:hover {
-  cursor: pointer;
-  background-color: #c1c1c1;
-}
-
-.quantity {
-  text-align: center;
-  width: 1.5vw;
-  height: 1.5vw;
-  box-shadow: inset 0 0 0px 2px #dadada;
-}
-
+.minus,
 .plus {
-  text-align: center;
-  width: 1.5vw;
-  height: 1.5vw;
-  background-color: #dadada;
-  border-radius: 0 0.5vh 0.5vh 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 3.5vh;
+    background-color: #dadada;
+    border-radius: 0.2vw;
 }
 
+.minus:hover,
 .plus:hover {
-  cursor: pointer;
-  background-color: #c1c1c1;
+    cursor: pointer;
+    background-color: #b0b0b0;
 }
 
-.modal-footer {
-  display: flex;
-  justify-content: end;
+.modal-acao {
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    padding: 0.2vw;
 }
 
-.modal-pedido {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 50%;
-  height: 5vh;
-  background-color: #dadada;
-  border-radius: 0.5vh;
+.modal-acao button {
+    border: none;
+    background-color: #dadada;
+    width: 50%;
+    height: 100%;
+    border-radius: 0.2vw;
 }
 
-.modal-pedido:hover {
-  cursor: pointer;
-  background-color: #c1c1c1;
+.modal-acao button:hover {
+    cursor: pointer;
+    background-color: #b0b0b0;
 }
 
-.cardapio-container {
-  display: grid;
-  grid-template-columns: 1fr 3fr 1.5fr;
-  height: 90vh;
+.container-pagina {
+    width: 100vw;
+    height: 90vh;
+    display: grid;
+    grid-template-columns: 1fr 3fr 1.5fr;
 }
 
 .cardapio-menu {
-  text-align: center;
-  background-color: #dadada;
+    height: 90vh;
+    display: grid;
+    grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+    background-color: #dadada;
+    justify-items: stretch;
+    align-items: center;
 }
 
-.cardapio-items {
-  margin: 2vw;
-  display: flex;
-  flex-flow: row wrap;
-  align-items: center;
-  align-content: center;
-  gap: 1vw;
+.cardapio-pesquisa {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
-.cardapio-item {
-  width: 10vw;
-  height: 10vh;
-
-}
-
-.pesquisa {
-  width: 70%;
-  height: 5vh;
-  border-radius: 0.7vh;
-  padding: 0.5rem;
-  border: none;
-}
-
-.filtros {
-  display: grid;
-  height: 75vh;
-  grid-template-rows: 1fr 1fr 1fr 1fr;
-  justify-items: stretch;
+input[type=text] {
+    width: 75%;
+    height: 4vh;
+    font-size: 1rem;
+    border-radius: 0.2vw;
+    border: none;
 }
 
 .cardapio-filtro {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .cardapio-filtro:hover {
-  cursor: pointer;
-  background-color: #c1c1c1;
+    cursor: pointer;
+    background-color: #bdbdbd;
+}
+
+.cardapio-itens {
+    margin: 2vw;
+    display: flex;
+    height: 85vh;
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+    align-content: center;
+    gap: 1vw;
+    overflow: auto;
+}
+
+.cardapio-item {
+    width: 10vw;
+    height: 10vh;
+    padding: 1%;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-wrap: break-word;
+    box-shadow: 0px 0px 1px 1px #c8c8c8;
+}
+
+.cardapio-item:hover {
+    cursor: pointer;
+    background-color: #c8c8c8;
+}
+
+.cardapio-pedidos {
+    display: grid;
+    grid-template-rows: 70% 30%;
+    height: 90vh;
+    background-color: #dadada;
+}
+
+.cardapio-lista-pedidos {
+    overflow: auto;
 }
 
 .cardapio-pedido {
-  overflow: auto;
+    height: 10vh;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin: 10px;
 }
 
-.pedidos-anotados {
-  display: grid;
-  grid-template-rows: 5fr 1fr;
-  height: 90vh;
-  background-color: #dadada;
+.cardapio-pedido:hover {
+    cursor: pointer;
+    background-color: #c1c1c1;
 }
 
-
-.fazer-pedido {
-  display: flex;
-  justify-content: center;
-  height: 10vh;
-
+.cardapio-fazer-pedido {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .confirmar-pedido {
-  width: 15vw;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #c1c1c1;
-  border-radius: 0 0.5vw 0.5vw 0;
+    width: 15vw;
+    height: 10vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #c1c1c1;
+    border-radius: 0 0.5vw 0.5vw 0;
 }
 
 .confirmar-pedido:hover {
-  cursor: pointer;
-  background-color: #adadad;
+    cursor: pointer;
+    background-color: #adadad;
 }
 
 .numero-mesa {
-  width: 5vw;
-  height: 100%;
-  border: none;
-  outline: none;
-  font-size: 2.5em;
-  text-align: center;
-  border-radius: 0.5vw 0 0 0.5vw;
+    width: 5vw;
+    height: 10vh;
+    border: none;
+    outline: none;
+    font-size: 2.5em;
+    text-align: center;
+    border-radius: 0.5vw 0 0 0.5vw;
 }
 
 .v-enter-active,
 .v-leave-active {
-  transition: opacity 0.25s ease;
+    transition: opacity 0.25s ease;
 }
 
 .v-enter-from,
 .v-leave-to {
-  opacity: 0;
+    opacity: 0;
 }</style>

@@ -30,7 +30,7 @@ const emit = defineEmits(['adicionarPedidos', 'emitirConta', 'removerItem', 'mud
     </div>
     <div class="opcoes">
         <button style="border-radius: 0 0 0 0.5vw;" @click="$emit('adicionarPedidos')" :disabled="status != ''">ADICIONAR PEDIDOS</button>
-        <button style="border-radius: 0 0 0.5vw 0;" @click="handleEmissao" :disabled="status != ''">EMITIR CONTA</button>
+        <button style="border-radius: 0 0 0.5vw 0;" @click="$emit('emitirConta')" :disabled="status != ''">EMITIR CONTA</button>
     </div>
 </template>
 

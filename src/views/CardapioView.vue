@@ -68,6 +68,16 @@ function excluirPedido(id) {
     pedidosAnotados.value = pedidosAnotados.value.filter(pedido => pedido.id !== id);
 }
 
+function handleAddition(pedidos, mesa) {
+    if(patio.value[mesa - 1].emitida === true) {
+        alert("Essa conta já foi emitida. Cancele a emissão ou escolha outra mesa.");
+        return;
+    }
+    
+    adicionarItens(pedidos, mesa);
+    pedidosAnotados.value = [];
+}
+
 </script>
 
 <template>
@@ -139,7 +149,7 @@ function excluirPedido(id) {
                     <option v-for="i in patio.length" :value="i">{{ i }}</option>
                 </select>
                 <div class="confirmar-pedido"
-                    @click="adicionarItens(pedidosAnotados, mesaSelecionada); pedidosAnotados = [];">FAZER PEDIDO</div>
+                    @click="handleAddition(pedidosAnotados, mesaSelecionada)">FAZER PEDIDO</div>
             </div>
         </div>
     </div>

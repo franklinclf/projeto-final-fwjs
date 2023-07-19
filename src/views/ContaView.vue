@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject } from 'vue';
+import { ref, inject, watch } from 'vue';
 import Conta from "../components/Conta.vue"
 import SelecionarItem from "../components/SelecionarItem.vue"
 
@@ -17,12 +17,16 @@ let mesaSelecionada = ref(1)
 let houveDivisao = ref(false)
 let contasDivididas = ref(1)
 let contas = ref([])
+let contasStatus = ref([])
 let contaSelecionada = ref()
-
+ 
 function handleSelection(mesa) {
     mesaSelecionada.value = mesa - 1;
-    contas.value = []
-    listaTemporaria.value = dataExtraction(patio.value[mesaSelecionada.value].pedidos)
+    if(!patio.value[mesaSelecionada.value].emitida) {
+        contas.value = []
+        contasStatus.value = []
+        listaTemporaria.value = dataExtraction(patio.value[mesaSelecionada.value].pedidos)
+    }
     listaDePedidos.value = dataExtraction(patio.value[mesaSelecionada.value].pedidos)
     mesas.value = false;
 }
@@ -39,6 +43,7 @@ function handleDivisao() {
     }
 
     contas.value = [];
+    contasStatus.value = [];
     
     if (contasDivididas.value === 1) {
         houveDivisao.value = false;
@@ -48,6 +53,7 @@ function handleDivisao() {
 
     for (let i = 0; i < contasDivididas.value; i++) {
         contas.value.push([]);
+        contasStatus.value.push({status: ''});
     }
 
     listaTemporaria.value = listaDePedidos.value;
@@ -128,10 +134,12 @@ function handleAdditions() {
 }
 
 function handleReset() {
-    contas.value = []
+    contas.value = [];
+    contasStatus.value = []
 
     for (let i = 0; i < contasDivididas.value; i++) {
         contas.value.push([]);
+        contasStatus.value.push({status: ''});
     }
 
     listaTemporaria.value = dataExtraction(patio.value[mesaSelecionada.value].pedidos)
@@ -139,6 +147,10 @@ function handleReset() {
 }
 
 function handleRemocao(obj) {
+    if(contasStatus.value[obj.numero].status !== '') {
+        return;
+    }
+
     const index = listaTemporaria.value.findIndex(item => item.nome === obj.pedido.nome)
     const rIndex = contas.value[obj.numero].findIndex(item => item.nome === obj.pedido.nome)
 
@@ -153,8 +165,66 @@ function handleRemocao(obj) {
     }
 }
 
-function handleEmissao() {
+function handleStatus(obj) {
+    let status = obj.$event.target.value;
+    let index = obj.numero;
+
+    contasStatus.value[index].status = status;
+    checarPagamentos();
+}
+
+function handleEmissao(i) {
+
+    if(i === -1) {
+        if(patio.value[mesaSelecionada.value].pedidos.length === 0) {
+            alert("Insira algum item antes de emitir essa conta.");
+            return
+        }
+
+        patio.value[mesaSelecionada.value].emitida = true;
+        alert("Enviado para a impressora!")
+        checarPagamentos();
+        return;
+    }
+
+    if(contas.value[i].length === 0){
+        alert("Insira algum item antes de emitir essa conta.")
+        return;
+    }
+
+    if(listaTemporaria.value.length !== 0) {
+        alert("Ainda existem itens não alocados em uma conta.");
+        return;
+    }
+
+    patio.value[mesaSelecionada.value].emitida = true;
+    contasStatus.value[i].status = 'pendente';
+    checarPagamentos();
     alert("Enviado para a impressora!")
+}
+
+function cancelarEmissao() {
+    contas.value = [];
+    patio.value[mesaSelecionada.value].emitida = false; 
+    patio.value[mesaSelecionada.value].paga = false
+}
+
+function checarPagamentos() {
+    let todosPagos = true;
+
+    for(let i = 0; i < contas.value.length; i++) {
+        if(contasStatus.value[i].status !== 'pago' && contas.value[i].length > 0) {
+            todosPagos = false;
+            break;
+        }    
+    }
+
+    if(contasDivididas.value == 1)
+    {
+        todosPagos = false;
+    }
+
+    patio.value[mesaSelecionada.value].paga = todosPagos;
 }
 
 </script>
@@ -194,12 +264,17 @@ function handleEmissao() {
 
     <div v-else class="container-pagina">
         <div class="conta-menu">
-            <div v-if="!houveDivisao" class="conta-menu-botao" @click="handleEmissao">EMITIR CONTA</div>
-            <div v-else class="conta-menu-botao" @click="handleReset">RESETAR</div>
+            <button v-if="!houveDivisao" class="conta-menu-botao" @click="handleEmissao(-1)" :disabled="patio[mesaSelecionada].emitida">EMITIR CONTA</button>
+            <div v-if="!patio[mesaSelecionada].emitida" class="conta-menu-botao" @click="handleReset">RESETAR</div>
             <div class="container-divisao">
                 <input type="number" min="1" v-model="contasDivididas" class="conta-menu-numero">
-                <div class="conta-menu-dividir" @click="handleDivisao">DIVIDIR CONTA</div>
+                <button class="conta-menu-dividir" @click="handleDivisao" :disabled="patio[mesaSelecionada].emitida">DIVIDIR CONTA</button>
             </div>
+            <select v-if="patio[mesaSelecionada].emitida" :value="patio[mesaSelecionada].paga" @change="event => patio[mesaSelecionada].paga = event.target.value">
+                <option value="true">PAGA</option>
+                <option value="false">PENDENTE</option>
+            </select>
+            <button v-if="patio[mesaSelecionada].emitida" class="conta-menu-botao" @click="cancelarEmissao">CANCELAR EMISSÃO</button>
         </div>
 
         <div class="conta-itens">
@@ -227,8 +302,8 @@ function handleEmissao() {
             </div>
         </div>
         <div class="conta-lista">
-            <Conta v-for="(conta, i) in contas" :pedidos="conta" :numero="i" @adicionarPedidos="handleConta(i)"
-                @emitirConta="handleEmissao" @removerItem="handleRemocao"/>
+            <Conta v-for="(conta, i) in contas" :pedidos="conta" :numero="i" :status="contasStatus[i].status" @adicionarPedidos="handleConta(i)"
+                @emitirConta="handleEmissao(i)" @removerItem="handleRemocao" @mudarStatus="handleStatus"/>
         </div>
     </div>
 </template>
@@ -357,6 +432,7 @@ function handleEmissao() {
 }
 
 .conta-menu-botao {
+    border: none;
     width: 15vw;
     height: 10vh;
     display: flex;
@@ -378,6 +454,7 @@ function handleEmissao() {
 }
 
 .conta-menu-dividir {
+    border: none;
     width: 10vw;
     height: 100%;
     display: flex;

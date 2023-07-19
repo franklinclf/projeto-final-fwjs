@@ -65,11 +65,12 @@ watch(patio.value, () => {
                         <p>R$ {{ item.preco.toFixed(2) }}</p>
                         <p>{{ item.horario }}</p>
     
-                        <select @change="handleStatus(item, $event)" :value="item.status" :key="item.id">
+                        <select v-if="!patio[mesaSelecionada].emitida" @change="handleStatus(item, $event)" :value="item.status" :key="item.id">
                             <option value="preparo">Em preparo</option>
                             <option value="entregue">Entregue</option>
                             <option value="cancelado">Cancelado</option>
                         </select>
+                        <p v-else>{{ item.status }}</p>
 
                 </div>
             </div>
